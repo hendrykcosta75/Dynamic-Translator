@@ -1,0 +1,7 @@
+deep-translator
+pynput
+pyperclip
+pystray
+Pillow
+openai
+python-dotenv
