@@ -49,7 +49,7 @@ class TranslatorService:
                         {"role": "system", "content": f"You are a translator. Translate the following text to Portuguese (Brazil). Output ONLY the translation."},
                         {"role": "user", "content": text}
                     ],
-                    max_tokens=1000,
+                    max_completion_tokens=1000,
                     stream=True
                 )
                 for chunk in stream:
