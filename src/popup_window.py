@@ -1,5 +1,16 @@
 import tkinter as tk
-from tkinter import ttk
+
+# ─── Color Palette ───────────────────────────────────────────────────────────
+COLORS = {
+    'bg':       '#1a1a2e',
+    'accent':   '#818cf8',
+    'text':     '#e2e8f0',
+    'text_muted': '#475569',
+    'border':   '#2a2a45',
+}
+
+FONT = 'Segoe UI'
+
 
 class PopupWindow:
     def __init__(self, root):
@@ -8,127 +19,100 @@ class PopupWindow:
         self.window.withdraw()
         self.window.overrideredirect(True)
         self.window.attributes("-topmost", True)
-        self.window.attributes("-alpha", 0.95)
+        self.window.attributes("-alpha", 0.96)
 
-        # Style Configuration
-        self.bg_color = "#202124"  # Google Translate Dark Gray
-        self.fg_color = "#e8eaed"  # Light Text
-        self.border_color = "#5f6368"
-        
-        # Main Frame with border
-        self.frame = tk.Frame(
-            self.window, 
-            bg=self.bg_color, 
-            highlightbackground=self.border_color, 
-            highlightthickness=1
-        )
-        self.frame.pack(fill="both", expand=True)
+        # Outer frame acts as accent border (thicker on top)
+        self.outer = tk.Frame(self.window, bg=COLORS['accent'])
+        self.outer.pack(fill='both', expand=True)
 
-        # Content Frame
-        self.content_frame = tk.Frame(self.frame, bg=self.bg_color)
-        self.content_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        # Inner frame – dark content area
+        # padx=1 = thin side borders, pady=(3,1) = 3px accent top bar
+        self.inner = tk.Frame(self.outer, bg=COLORS['bg'])
+        self.inner.pack(fill='both', expand=True, padx=1, pady=(3, 1))
 
+        # Text label
         self.label = tk.Label(
-            self.content_frame, 
-            text="", 
-            bg=self.bg_color, 
-            fg=self.fg_color, 
-            font=("Segoe UI", 11), 
-            wraplength=350, 
-            justify="left"
+            self.inner,
+            text="",
+            bg=COLORS['bg'],
+            fg=COLORS['text'],
+            font=(FONT, 11),
+            wraplength=380,
+            justify='left',
+            padx=14,
+            pady=12,
         )
-        self.label.pack(fill="both", expand=True)
+        self.label.pack(fill='both', expand=True)
 
-        # Resize Grip (Bottom Right)
-        self.grip = tk.Label(self.frame, text="◢", bg=self.bg_color, fg=self.border_color, cursor="sizing")
-        self.grip.place(relx=1.0, rely=1.0, anchor="se")
-        
-        self.grip.bind("<ButtonPress-1>", self.start_resize)
-        self.grip.bind("<B1-Motion>", self.do_resize)
+        # Resize grip (subtle)
+        self.grip = tk.Label(
+            self.inner, text="\u2022\u2022", bg=COLORS['bg'],
+            fg=COLORS['border'], cursor='sizing', font=(FONT, 7))
+        self.grip.place(relx=1.0, rely=1.0, anchor='se', x=-4, y=-2)
 
-        # Move Window (Drag from body)
-        self.label.bind("<Button-1>", self.start_move)
-        self.label.bind("<B1-Motion>", self.do_move)
-        self.frame.bind("<Button-1>", self.start_move)
-        self.frame.bind("<B1-Motion>", self.do_move)
+        self.grip.bind("<ButtonPress-1>", self._start_resize)
+        self.grip.bind("<B1-Motion>", self._do_resize)
 
-        # Close on right click
-        self.label.bind("<Button-3>", lambda e: self.hide())
-        self.frame.bind("<Button-3>", lambda e: self.hide())
+        # Drag to move
+        for w in (self.label, self.inner):
+            w.bind("<Button-1>", self._start_move)
+            w.bind("<B1-Motion>", self._do_move)
 
-        self.x = 0
-        self.y = 0
-        self.start_w = 0
-        self.start_h = 0
+        # Right-click to close
+        for w in (self.label, self.inner):
+            w.bind("<Button-3>", lambda _: self.hide())
 
-    def start_move(self, event):
-        self.x = event.x
-        self.y = event.y
+        self._mx = 0
+        self._my = 0
 
-    def do_move(self, event):
-        deltax = event.x - self.x
-        deltay = event.y - self.y
-        x = self.window.winfo_x() + deltax
-        y = self.window.winfo_y() + deltay
+    # ── Move ────────────────────────────────────────────────────────────────
+
+    def _start_move(self, event):
+        self._mx = event.x
+        self._my = event.y
+
+    def _do_move(self, event):
+        dx = event.x - self._mx
+        dy = event.y - self._my
+        x = self.window.winfo_x() + dx
+        y = self.window.winfo_y() + dy
         self.window.geometry(f"+{x}+{y}")
 
-    def start_resize(self, event):
-        self.x = event.x
-        self.y = event.y
-        self.start_w = self.window.winfo_width()
-        self.start_h = self.window.winfo_height()
+    # ── Resize ──────────────────────────────────────────────────────────────
 
-    def do_resize(self, event):
-        # Calculate new size
-        # event.x is relative to the grip widget, so it's a bit tricky.
-        # easier to use screen coordinates or just delta.
-        # Let's use root coordinates.
-        
-        # Actually, since it's B1-Motion on the grip, event.x is pos relative to click start? No.
-        # It's relative to the widget.
-        
-        # Let's simple way: 
-        # Update width/height based on mouse movement.
-        # But wait, we need global mouse pos to be accurate?
-        # Simpler:
-        w = self.window.winfo_width() + (event.x - self.grip.winfo_width()/2) # slight offset correction attempt
-        h = self.window.winfo_height() + (event.y - self.grip.winfo_height()/2)
-        
-        # Minimum size
-        if w < 100: w = 100
-        if h < 50: h = 50
-        
-        # update wraplength to match width
-        self.label.config(wraplength=w-40)
-        
+    def _start_resize(self, event):
+        self._mx = event.x
+        self._my = event.y
+
+    def _do_resize(self, event):
+        w = self.window.winfo_width() + (event.x - self._mx)
+        h = self.window.winfo_height() + (event.y - self._my)
+        w = max(w, 120)
+        h = max(h, 50)
+        self.label.config(wraplength=w - 40)
         self.window.geometry(f"{int(w)}x{int(h)}")
 
+    # ── Show / Hide ─────────────────────────────────────────────────────────
 
     def show(self, text, x, y):
-        self.label.config(text=text)
-        
-        # Calculate initial size based on text
+        self.label.config(text=text, wraplength=380)
         self.window.update_idletasks()
-        
-        # Reset Wraplength to default or 350 before calculating
-        self.label.config(wraplength=350)
-        
-        w = self.label.winfo_reqwidth() + 20
-        h = self.label.winfo_reqheight() + 20
-        
-        # Cap max initial width
-        if w > 400: w = 400
-        
-        # Add offset
+
+        w = min(self.label.winfo_reqwidth() + 30, 420)
+        h = self.label.winfo_reqheight() + 28
+
+        # Offset from cursor
         x += 20
         y += 20
-        
-        screen_width = self.root.winfo_screenwidth()
-        screen_height = self.root.winfo_screenheight()
-        
-        if x + w > screen_width: x = screen_width - w - 10
-        if y + h > screen_height: y = y - h - 40
-            
+
+        # Keep on screen
+        sw = self.root.winfo_screenwidth()
+        sh = self.root.winfo_screenheight()
+        if x + w > sw:
+            x = sw - w - 10
+        if y + h > sh:
+            y = y - h - 40
+
         self.window.geometry(f"{int(w)}x{int(h)}+{int(x)}+{int(y)}")
         self.window.deiconify()
 
