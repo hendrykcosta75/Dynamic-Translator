@@ -138,6 +138,7 @@ class MainWindow:
         self.root.geometry("720x480")
         self.root.minsize(620, 400)
         self.root.configure(bg=COLORS['bg'])
+        self.root.attributes('-topmost', True)
 
         # Dark title-bar (Windows 10/11)
         self.root.update_idletasks()
